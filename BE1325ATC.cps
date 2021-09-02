@@ -53,14 +53,6 @@ properties = {
     value: true,
     scope: "post"
   },
-  preloadTool: {
-    title: "Preload tool",
-    description: "Preloads the next tool at a tool change (if any).",
-    group: 1,
-    type: "boolean",
-    value: true,
-    scope: "post"
-  },
   showSequenceNumbers: {
     title: "Use sequence numbers",
     description: "Use sequence numbers for each block of outputted code.",
@@ -158,13 +150,6 @@ properties = {
   useG95: {
     title: "Use G95",
     description: "Use IPR/MPR instead of IPM/MPM.",
-    type: "boolean",
-    value: false,
-    scope: "post"
-  },
-  useG54x4: {
-    title: "Use G54.4",
-    description: "Fanuc 30i supports G54.4 for workpiece error compensation.",
     type: "boolean",
     value: false,
     scope: "post"
@@ -316,7 +301,7 @@ var WARNING_WORK_OFFSET = 0;
 var allowIndexingWCSProbing = false; // specifies that probe WCS with tool orientation is supported
 var probeVariables = {
   outputRotationCodes: false, // defines if it is required to output rotation codes
-  probeAngleMethod: "OFF", // OFF, AXIS_ROT, G68, G54.4
+  probeAngleMethod: "OFF", // OFF, AXIS_ROT, G68
   compensationXY: undefined
 };
 
@@ -1488,22 +1473,6 @@ function onSection() {
         writeComment(localize("ZMIN") + "=" + zRange.getMinimum());
       }
     }
-
-    if (getProperty("preloadTool")) {
-      var nextTool = getNextTool(tool.number);
-      if (nextTool) {
-        skipBlock = !insertToolCall;
-        writeBlock("T" + toolFormat.format(nextTool.number));
-      } else {
-        // preload first tool
-        var section = getSection(0);
-        var firstToolNumber = section.getTool().number;
-        if (tool.number != firstToolNumber) {
-          skipBlock = !insertToolCall;
-          writeBlock("T" + toolFormat.format(firstToolNumber));
-        }
-      }
-    }
   }
   if (tool.type != TOOL_PROBE) {
     var outputSpindleSpeed = insertToolCall || forceSpindleSpeed || isFirstSection() ||
@@ -1678,7 +1647,6 @@ function onSection() {
 
   if (isProbeOperation()) {
     validate(probeVariables.probeAngleMethod != "G68", "You cannot probe while G68 Rotation is in effect.");
-    validate(probeVariables.probeAngleMethod != "G54.4", "You cannot probe while workpiece setting error compensation G54.4 is enabled.");
     writeBlock(gFormat.format(65), "P" + 9832); // spin the probe on
     inspectionCreateResultsFileHeader();
   } else {
@@ -1746,7 +1714,7 @@ function approach(value) {
 }
 
 function setProbeAngleMethod() {
-  probeVariables.probeAngleMethod = (machineConfiguration.getNumberOfAxes() < 5 || is3D()) ? (getProperty("useG54x4") ? "G54.4" : "G68") : "UNSUPPORTED";
+  probeVariables.probeAngleMethod = (machineConfiguration.getNumberOfAxes() < 5 || is3D()) ? "G68" : "UNSUPPORTED";
   var axes = [machineConfiguration.getAxisU(), machineConfiguration.getAxisV(), machineConfiguration.getAxisW()];
   for (var i = 0; i < axes.length; ++i) {
     if (axes[i].isEnabled() && isSameDirection((axes[i].getAxis()).getAbsolute(), new Vector(0, 0, 1)) && axes[i].isTable()) {
@@ -1766,13 +1734,6 @@ function setProbeAngle() {
     }
     var validateWorkOffset = false;
     switch (probeVariables.probeAngleMethod) {
-    case "G54.4":
-      var param = 26000 + (probeOutputWorkOffset * 10);
-      writeBlock("#" + param + "=#135");
-      writeBlock("#" + (param + 1) + "=#136");
-      writeBlock("#" + (param + 5) + "=#144");
-      writeBlock(gFormat.format(54.4), "P" + probeOutputWorkOffset);
-      break;
     case "G68":
       gRotationModal.reset();
       gAbsIncModal.reset();
@@ -3138,10 +3099,6 @@ function onClose() {
 
   forceWorkPlane();
   setWorkPlane(new Vector(0, 0, 0)); // reset working plane
-
-  if (probeVariables.probeAngleMethod == "G54.4") {
-    writeBlock(gFormat.format(54.4), "P0");
-  }
 
   writeRetract(X, Y); // return to home
   
