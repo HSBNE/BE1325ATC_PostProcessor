@@ -2882,7 +2882,7 @@ function writeRetract() {
   var _yHome;
   var _zHome;
   _xHome = machineConfiguration.hasHomePositionX() ? machineConfiguration.getHomePositionX() : toPreciseUnit(0, MM);
-  _yHome = machineConfiguration.hasHomePositionY() ? machineConfiguration.getHomePositionY() : toPreciseUnit(0, MM);
+  _yHome = machineConfiguration.getHomePositionY() < 800 ? machineConfiguration.getHomePositionY() : toPreciseUnit(800, MM);
   _zHome = machineConfiguration.getRetractPlane() != 0 ? machineConfiguration.getRetractPlane() : toPreciseUnit(0, MM);
   for (var i = 0; i < arguments.length; ++i) {
     switch (arguments[i]) {
